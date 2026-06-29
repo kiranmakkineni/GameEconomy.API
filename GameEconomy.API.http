@@ -1,0 +1,6 @@
+@GameEconomy.API_HostAddress = http://localhost:5168
+
+GET {{GameEconomy.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
