@@ -34,15 +34,47 @@ public class WalletController : ControllerBase
     [HttpGet("{playerId}")]
     public async Task<IActionResult> GetWallet(string playerId)
     {
-        var wallet = await _walletService.GetWalletAsync(playerId);
+        var playerState = await _walletService.GetPlayerStateAsync(playerId);
 
-        if (wallet == null)
+        if (playerState == null)
             return NotFound();
 
-        return Ok(new WalletResponse
+        return Ok(playerState);
+    }
+    // POST /v1/wallets/{playerId}/purchase
+    [HttpPost("{playerId}/purchase")]
+    public async Task<IActionResult> Purchase(
+        string playerId,
+        [FromBody] PurchaseRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string idempotencyKey)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _walletService.PurchaseAsync(
+            playerId,
+            request,
+            idempotencyKey);
+
+        return Ok(result);
+    }
+
+    // POST /v1/rewards/{rewardId}/claim
+    [HttpPost("{rewardId}/claim")]
+    public async Task<IActionResult> ClaimReward(
+        string rewardId,
+        [FromBody] ClaimRewardRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        await _walletService.ClaimRewardAsync(rewardId, request);
+
+        return Ok(new
         {
-            PlayerId = wallet.PlayerId,
-            Balance = wallet.Balance
+            Message = "Reward claimed successfully."
         });
     }
+
+    
 }

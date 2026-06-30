@@ -79,6 +79,15 @@ public class WalletService : IWalletService
 
         // 3. Update balance
         wallet.Balance += request.Amount;
+        _context.WalletTransactions.Add(new WalletTransaction
+        {
+            Id = Guid.NewGuid(),
+            PlayerId = playerId,
+            Amount = request.Amount,
+            TransactionType = "CREDIT",
+            Reason = request.Reason,
+            CreatedAt = DateTime.UtcNow
+        });
 
         await _context.SaveChangesAsync();
 
@@ -100,6 +109,108 @@ public class WalletService : IWalletService
         );
 
         return response;
+    }
+
+    
+
+    public async Task<WalletResponse> PurchaseAsync(
+    string playerId,
+    PurchaseRequest request,
+    string idempotencyKey)
+    {
+        var wallet = await _context.Wallets
+            .FirstOrDefaultAsync(w => w.PlayerId == playerId);
+
+        if (wallet == null)
+        {
+            throw new Exception("Wallet not found.");
+        }
+
+        if (wallet.Balance < request.Price)
+        {
+            throw new Exception("Insufficient balance.");
+        }
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            wallet.Balance -= request.Price;
+
+            _context.InventoryItems.Add(new InventoryItem
+            {
+                Id = Guid.NewGuid(),
+                PlayerId = playerId,
+                ItemId = request.ItemId,
+                AcquiredAt = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            return new WalletResponse
+            {
+                PlayerId = wallet.PlayerId,
+                Balance = wallet.Balance
+            };
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task ClaimRewardAsync(
+    string rewardId,
+    ClaimRewardRequest request)
+    {
+        var alreadyClaimed = await _context.RewardClaims
+            .AnyAsync(r =>
+                r.PlayerId == request.PlayerId &&
+                r.RewardId == rewardId);
+
+        if (alreadyClaimed)
+        {
+            throw new Exception("Reward has already been claimed.");
+        }
+
+        _context.RewardClaims.Add(new RewardClaim
+        {
+            Id = Guid.NewGuid(),
+            PlayerId = request.PlayerId,
+            RewardId = rewardId,
+            ClaimedAt = DateTime.UtcNow
+        });
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<PlayerStateResponse?> GetPlayerStateAsync(string playerId)
+    {
+        var wallet = await _context.Wallets
+            .FirstOrDefaultAsync(w => w.PlayerId == playerId);
+
+        if (wallet == null)
+            return null;
+
+        var inventory = await _context.InventoryItems
+            .Where(i => i.PlayerId == playerId)
+            .Select(i => i.ItemId)
+            .ToListAsync();
+
+        var claimedRewards = await _context.RewardClaims
+            .Where(r => r.PlayerId == playerId)
+            .Select(r => r.RewardId)
+            .ToListAsync();
+
+        return new PlayerStateResponse
+        {
+            Balance = wallet.Balance,
+            Inventory = inventory,
+            ClaimedRewards = claimedRewards
+        };
     }
 
 }

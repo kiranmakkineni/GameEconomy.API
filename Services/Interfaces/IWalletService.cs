@@ -13,4 +13,17 @@ public interface IWalletService
         string playerId,
         CreditWalletRequest request,
         string idempotencyKey);
+   
+
+    Task<WalletResponse> PurchaseAsync(
+    string playerId,
+    PurchaseRequest request,
+    string idempotencyKey);
+
+    Task ClaimRewardAsync(
+    string rewardId,
+    ClaimRewardRequest request);
+
+    Task<PlayerStateResponse?> GetPlayerStateAsync(string playerId);
+
 }
