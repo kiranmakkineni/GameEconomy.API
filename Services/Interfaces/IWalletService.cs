@@ -1,7 +1,7 @@
 ﻿using GameEconomy.API.DTOs;
 using GameEconomy.API.Models;
 
-namespace GameEconomy.API.Services;
+namespace GameEconomy.API.Services.Interfaces;
 
 public interface IWalletService
 {
@@ -9,5 +9,8 @@ public interface IWalletService
 
     Task<Wallet?> GetWalletAsync(string playerId);
 
-    Task<WalletResponse> CreditAsync(string playerId, CreditWalletRequest request);
+    Task<WalletResponse> CreditAsync(
+        string playerId,
+        CreditWalletRequest request,
+        string idempotencyKey);
 }

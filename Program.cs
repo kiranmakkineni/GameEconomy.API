@@ -1,5 +1,6 @@
 ﻿using GameEconomy.API.Data;
 using GameEconomy.API.Services;
+using GameEconomy.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +15,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // ✅ SERVICES
 builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IIdempotencyService, IdempotencyService>();
 
 var app = builder.Build();
 

@@ -1,5 +1,5 @@
 ﻿using GameEconomy.API.DTOs;
-using GameEconomy.API.Services;
+using GameEconomy.API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GameEconomy.API.Controllers;
@@ -17,12 +17,15 @@ public class WalletController : ControllerBase
 
     // POST /v1/wallets/{playerId}/credit
     [HttpPost("{playerId}/credit")]
-    public async Task<IActionResult> Credit(string playerId, [FromBody] CreditWalletRequest request)
+    public async Task<IActionResult> Credit(
+    string playerId,
+    [FromBody] CreditWalletRequest request,
+    [FromHeader(Name = "Idempotency-Key")] string idempotencyKey)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _walletService.CreditAsync(playerId, request);
+        var result = await _walletService.CreditAsync(playerId, request, idempotencyKey);
 
         return Ok(result);
     }
