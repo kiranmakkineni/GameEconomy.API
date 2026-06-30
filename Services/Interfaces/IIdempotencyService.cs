@@ -2,7 +2,7 @@
 
 public interface IIdempotencyService
 {
-    Task<string?> GetResponseAsync(string idempotencyKey);
+    Task<string?> GetResponseAsync(string idempotencyKey, string playerId);
 
     Task SaveResponseAsync(
         string idempotencyKey,

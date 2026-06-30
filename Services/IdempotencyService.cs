@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GameEconomy.API.Services;
 
-
 public class IdempotencyService : IIdempotencyService
 {
     private readonly AppDbContext _context;
@@ -15,12 +14,14 @@ public class IdempotencyService : IIdempotencyService
         _context = context;
     }
 
-    public async Task<string?> GetResponseAsync(string idempotencyKey)
+    public async Task<string?> GetResponseAsync(string idempotencyKey, string playerId)
     {
-        var request = await _context.IdempotencyRequests
-            .FirstOrDefaultAsync(x => x.IdempotencyKey == idempotencyKey);
+        var record = await _context.IdempotencyRequests
+            .FirstOrDefaultAsync(x =>
+                x.IdempotencyKey == idempotencyKey &&
+                x.PlayerId == playerId);
 
-        return request?.ResponseJson;
+        return record?.ResponseJson;
     }
 
     public async Task SaveResponseAsync(
@@ -29,13 +30,17 @@ public class IdempotencyService : IIdempotencyService
     string endpoint,
     string response)
     {
-        var existing = await _context.IdempotencyRequests
-            .FirstOrDefaultAsync(x => x.IdempotencyKey == idempotencyKey);
+        // 🔥 STEP 1: check first (prevents duplicate insert)
+        var exists = await _context.IdempotencyRequests
+            .AnyAsync(x =>
+                x.IdempotencyKey == idempotencyKey &&
+                x.PlayerId == playerId);
 
-        if (existing != null)
+        if (exists)
             return;
 
-        var request = new IdempotencyRequest
+        // 🔥 STEP 2: insert only if not exists
+        _context.IdempotencyRequests.Add(new IdempotencyRequest
         {
             Id = Guid.NewGuid(),
             IdempotencyKey = idempotencyKey,
@@ -43,9 +48,8 @@ public class IdempotencyService : IIdempotencyService
             Endpoint = endpoint,
             ResponseJson = response,
             CreatedAt = DateTime.UtcNow
-        };
+        });
 
-        _context.IdempotencyRequests.Add(request);
         await _context.SaveChangesAsync();
     }
 }

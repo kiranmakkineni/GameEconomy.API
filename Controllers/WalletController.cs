@@ -68,13 +68,23 @@ public class WalletController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        await _walletService.ClaimRewardAsync(rewardId, request);
-
-        return Ok(new
+        try
         {
-            Message = "Reward claimed successfully."
-        });
+            await _walletService.ClaimRewardAsync(rewardId, request);
+
+            return Ok(new
+            {
+                Message = "Reward claimed successfully."
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new
+            {
+                Message = ex.Message
+            });
+        }
     }
 
-    
+
 }
