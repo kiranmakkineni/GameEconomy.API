@@ -44,93 +44,141 @@ public class WalletService : IWalletService
             .FirstOrDefaultAsync(w => w.PlayerId == playerId);
     }
     public async Task<WalletResponse> CreditAsync(
-        string playerId,
-        CreditWalletRequest request,
-        string idempotencyKey)
+    string playerId,
+    CreditWalletRequest request,
+    string idempotencyKey)
     {
         if (request.Amount <= 0)
             throw new Exception("Invalid amount");
 
+        // Check for previous successful request
         var cached = await _idempotencyService.GetResponseAsync(idempotencyKey, playerId);
         if (!string.IsNullOrEmpty(cached))
             return JsonSerializer.Deserialize<WalletResponse>(cached)!;
 
-        var wallet = await _context.Wallets.FirstOrDefaultAsync(w => w.PlayerId == playerId);
+        await using var transaction = await _context.Database.BeginTransactionAsync();
 
-        if (wallet == null)
+        try
         {
-            wallet = new Wallet
+            var wallet = await _context.Wallets
+                .FirstOrDefaultAsync(w => w.PlayerId == playerId);
+
+            if (wallet == null)
             {
-                Id = Guid.NewGuid(),
+                wallet = new Wallet
+                {
+                    Id = Guid.NewGuid(),
+                    PlayerId = playerId,
+                    Balance = 0,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Wallets.Add(wallet);
+            }
+
+            wallet.Balance += request.Amount;
+
+            var response = new WalletResponse
+            {
                 PlayerId = playerId,
-                Balance = 0
+                Balance = wallet.Balance
             };
-            _context.Wallets.Add(wallet);
+
+            await _idempotencyService.SaveResponseAsync(
+                idempotencyKey,
+                playerId,
+                "credit",
+                JsonSerializer.Serialize(response));
+
+            // Save BOTH wallet and idempotency record together
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            return response;
         }
-
-        wallet.Balance += request.Amount;
-
-        await _context.SaveChangesAsync();
-
-        var response = new WalletResponse
+        catch (DbUpdateException)
         {
-            PlayerId = playerId,
-            Balance = wallet.Balance
-        };
+            await transaction.RollbackAsync();
 
-        await _idempotencyService.SaveResponseAsync(
-            idempotencyKey,
-            playerId,
-            "credit",
-            JsonSerializer.Serialize(response));
+            var cachedResponse = await _idempotencyService
+                .GetResponseAsync(idempotencyKey, playerId);
 
-        return response;
+            if (!string.IsNullOrEmpty(cachedResponse))
+                return JsonSerializer.Deserialize<WalletResponse>(cachedResponse)!;
+
+            throw;
+        }
+        
     }
 
     public async Task<WalletResponse> PurchaseAsync(
-        string playerId,
-        PurchaseRequest request,
-        string idempotencyKey)
+    string playerId,
+    PurchaseRequest request,
+    string idempotencyKey)
     {
         var cached = await _idempotencyService.GetResponseAsync(idempotencyKey, playerId);
+
         if (!string.IsNullOrEmpty(cached))
             return JsonSerializer.Deserialize<WalletResponse>(cached)!;
 
-        using var tx = await _context.Database.BeginTransactionAsync();
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync();
 
-        var rows = await _context.Database.ExecuteSqlInterpolatedAsync($@"
-UPDATE Wallets
-SET Balance = Balance - {request.Price}
-WHERE PlayerId = {playerId}
-AND Balance >= {request.Price};
-");
-
-        if (rows == 0)
-            throw new Exception("Insufficient balance");
-
-        _context.InventoryItems.Add(new InventoryItem
+        try
         {
-            Id = Guid.NewGuid(),
-            PlayerId = playerId,
-            ItemId = request.ItemId
-        });
+            var rows = await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                        UPDATE Wallets
+                        SET Balance = Balance - {request.Price}
+                        WHERE PlayerId = {playerId}
+                        AND Balance >= {request.Price};
+                        ");
 
-        await _context.SaveChangesAsync();
-        await tx.CommitAsync();
+            if (rows == 0)
+                throw new InvalidOperationException("Insufficient balance.");
 
-        var response = new WalletResponse
+            _context.InventoryItems.Add(new InventoryItem
+            {
+                Id = Guid.NewGuid(),
+                PlayerId = playerId,
+                ItemId = request.ItemId
+            });
+
+            var wallet = await _context.Wallets
+                .FirstAsync(w => w.PlayerId == playerId);
+
+            var response = new WalletResponse
+            {
+                PlayerId = playerId,
+                Balance = wallet.Balance
+            };
+
+            await _idempotencyService.SaveResponseAsync(
+                idempotencyKey,
+                playerId,
+                "purchase",
+                JsonSerializer.Serialize(response));
+
+            // Save wallet update, inventory item, and idempotency record together
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            return response;
+        }
+        catch (DbUpdateException)
         {
-            PlayerId = playerId,
-            Balance = (await _context.Wallets.FirstAsync(w => w.PlayerId == playerId)).Balance
-        };
+            await transaction.RollbackAsync();
 
-        await _idempotencyService.SaveResponseAsync(
-            idempotencyKey,
-            playerId,
-            "purchase",
-            JsonSerializer.Serialize(response));
+            var cachedResponse = await _idempotencyService
+                .GetResponseAsync(idempotencyKey, playerId);
 
-        return response;
+            if (!string.IsNullOrEmpty(cachedResponse))
+                return JsonSerializer.Deserialize<WalletResponse>(cachedResponse)!;
+
+            throw;
+        }
+        
     }
 
     public async Task ClaimRewardAsync(

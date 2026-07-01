@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GameEconomy.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260630075931_AddResponseJsonToIdempotency")]
-    partial class AddResponseJsonToIdempotency
+    [Migration("20260630172914_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -45,7 +45,7 @@ namespace GameEconomy.API.Migrations
 
                     b.Property<string>("PlayerId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ResponseJson")
                         .IsRequired()
@@ -53,7 +53,7 @@ namespace GameEconomy.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IdempotencyKey")
+                    b.HasIndex("PlayerId", "IdempotencyKey")
                         .IsUnique();
 
                     b.ToTable("IdempotencyRequests");
@@ -70,13 +70,16 @@ namespace GameEconomy.API.Migrations
 
                     b.Property<string>("ItemId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("PlayerId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PlayerId", "ItemId")
+                        .IsUnique();
 
                     b.ToTable("InventoryItems");
                 });
@@ -92,13 +95,16 @@ namespace GameEconomy.API.Migrations
 
                     b.Property<string>("PlayerId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("RewardId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PlayerId", "RewardId")
+                        .IsUnique();
 
                     b.ToTable("RewardClaims");
                 });
@@ -125,6 +131,35 @@ namespace GameEconomy.API.Migrations
                         .IsUnique();
 
                     b.ToTable("Wallets");
+                });
+
+            modelBuilder.Entity("GameEconomy.API.Models.WalletTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PlayerId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WalletTransactions");
                 });
 #pragma warning restore 612, 618
         }

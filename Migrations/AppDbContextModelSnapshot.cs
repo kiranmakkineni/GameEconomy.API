@@ -42,7 +42,7 @@ namespace GameEconomy.API.Migrations
 
                     b.Property<string>("PlayerId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ResponseJson")
                         .IsRequired()
@@ -50,7 +50,7 @@ namespace GameEconomy.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IdempotencyKey")
+                    b.HasIndex("PlayerId", "IdempotencyKey")
                         .IsUnique();
 
                     b.ToTable("IdempotencyRequests");
@@ -67,13 +67,16 @@ namespace GameEconomy.API.Migrations
 
                     b.Property<string>("ItemId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("PlayerId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PlayerId", "ItemId")
+                        .IsUnique();
 
                     b.ToTable("InventoryItems");
                 });
@@ -89,13 +92,16 @@ namespace GameEconomy.API.Migrations
 
                     b.Property<string>("PlayerId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("RewardId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PlayerId", "RewardId")
+                        .IsUnique();
 
                     b.ToTable("RewardClaims");
                 });

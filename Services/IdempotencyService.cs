@@ -39,7 +39,7 @@ public class IdempotencyService : IIdempotencyService
         if (exists)
             return;
 
-        // 🔥 STEP 2: insert only if not exists
+        //  STEP 2: insert only if not exists
         _context.IdempotencyRequests.Add(new IdempotencyRequest
         {
             Id = Guid.NewGuid(),
@@ -50,6 +50,5 @@ public class IdempotencyService : IIdempotencyService
             CreatedAt = DateTime.UtcNow
         });
 
-        await _context.SaveChangesAsync();
     }
 }
